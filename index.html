@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Legato Trainer v71 - Offset Tuned</title>
+    <title>Legato Trainer v71 - Header Fix</title>
     <style>
         /* --- v71 STYLE --- */
         :root {
@@ -175,7 +175,7 @@
         /* CONTROLS */
         .controls-area {
             background: #000; border-top: 1px solid var(--c-border);
-            display: flex; flex-direction: column;
+            display: flex; flex-direction: column; /* Stacked */
             padding: 10px 10px calc(10px + var(--safe-bottom)) 10px;
             flex-shrink: 0; position: relative; gap: 10px;
         }
@@ -237,7 +237,7 @@
 <body>
 
 <div class="header">
-    <h1>LEGATO TRAINER v70</h1>
+    <h1>LEGATO TRAINER v71</h1>
     <select id="grooveSelect" class="mode-select">
         <option value="1">Groove 1 (1/4)</option>
         <option value="2">Groove 2 (1/8)</option>
@@ -356,8 +356,7 @@
 const CONFIG = {
     PATTERNS: { 1: [1.0], 2: [0.5, 0.5], 3: [0.666, 0.333], 4: [0.75, 0.25] },
     THRESH_DEFAULT: 0.02, 
-    // FIX: Safe Default 160ms
-    LATENCY_DEFAULT: 0.160, 
+    LATENCY_DEFAULT: 0.160, // Fixed Default 160ms
     CALIB_CLICKS: 8,
     NOISE_LIMIT: 180
 };
@@ -394,7 +393,7 @@ const AudioSys = {
         if(!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const g = this.ctx.createGain();
-        osc.type = 'square';
+        osc.type = 'sawtooth';
         osc.frequency.value = 1000;
         g.gain.value = Game.vol;
         osc.connect(g); g.connect(this.gain);
@@ -586,7 +585,7 @@ const Game = {
     calibLoop() {
         if(!this.calibrating) return;
         const rms = AudioSys.getRMS();
-        // Extremely sensitive (0.005) to catch weak mic signals
+        // Sensitive detection (0.005)
         if (rms > 0.005) {
             const now = AudioSys.ctx.currentTime;
             const hit = this.calibHits[this.calibHits.length-1];
@@ -600,7 +599,6 @@ const Game = {
         let count = 0;
         let minLat = Infinity; 
         
-        // Discard first 2 hits
         const validHits = this.calibHits.slice(2);
         validHits.forEach(h => {
             if(h.recv) { 
@@ -610,22 +608,21 @@ const Game = {
             }
         });
         
-        let result = 0.160; // Default 160ms
-        let msg = "Calibration Failed.<br>Using default 160ms.";
+        let result = 0.160; 
+        let msg = "Using default 160ms.";
         
         if (count > 0) {
-            // FIX: Add +40ms margin to measured latency
+            // FIX: Measured + 40ms safety margin
             result = minLat + 0.040;
             if(result < 0.01) result = 0.01; 
             if(result > 0.5) result = 0.5;
-            msg = `Measured: ${Math.round(minLat*1000)}ms<br>Set: ${Math.round(result*1000)}ms`;
+            msg = `Measured: ${Math.round(minLat*1000)}ms<br>+40ms Margin Added`;
         }
         
         this.latency = result;
         const latMs = Math.round(result * 1000);
         View.els.inLat.value = latMs;
         View.updateLatDisp(latMs);
-        
         View.showOverlay('result', msg);
     },
     
