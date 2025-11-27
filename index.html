@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Legato Trainer v70 - Final Fix</title>
+    <title>Legato Trainer v71 - Offset Tuned</title>
     <style>
-        /* --- v70 STYLE --- */
+        /* --- v71 STYLE --- */
         :root {
             --c-bg: #000000;
             --c-panel: #111111;
@@ -55,7 +55,8 @@
         }
         .metro-arc {
             position: absolute; bottom: -40px; left: 50%; margin-left: -100px;
-            width: 200px; height: 200px; border-top: 1px solid #333; border-radius: 50%; opacity: 0.5;
+            width: 200px; height: 200px;
+            border-top: 1px solid #333; border-radius: 50%; opacity: 0.5;
         }
         .bumper {
             position: absolute; top: 20px; width: 6px; height: 25px;
@@ -184,7 +185,7 @@
         .bpm-lbl { font-size: 0.5rem; color: var(--c-sub); }
         .btn { 
             flex: 1; border: none; outline: none; box-shadow: none; border-radius: 8px; 
-            font-size: 1.0rem; font-weight: bold; cursor: pointer; padding: 10px; letter-spacing: 1px; 
+            font-size: 1.0rem; font-weight: bold; cursor: pointer; padding: 12px; letter-spacing: 1px; 
         }
         .btn-start { background: var(--c-accent); color: white; }
         .btn-stop { background: var(--c-bad); color: white; opacity: 0.3; pointer-events: none; }
@@ -317,9 +318,9 @@
         <div class="setting-item">
             <span>Latency</span>
             <div class="setting-row">
-                <span id="valLatDisp" class="val-disp">80</span>
+                <span id="valLatDisp" class="val-disp">160</span>
                 <button id="btnLatMinus" class="btn-adj">-</button>
-                <input type="range" id="inLat" min="0" max="400" value="80">
+                <input type="range" id="inLat" min="0" max="400" value="160">
                 <button id="btnLatPlus" class="btn-adj">+</button>
             </div>
         </div>
@@ -355,7 +356,8 @@
 const CONFIG = {
     PATTERNS: { 1: [1.0], 2: [0.5, 0.5], 3: [0.666, 0.333], 4: [0.75, 0.25] },
     THRESH_DEFAULT: 0.02, 
-    LATENCY_DEFAULT: 0.080, // Safe Default 80ms
+    // FIX: Safe Default 160ms
+    LATENCY_DEFAULT: 0.160, 
     CALIB_CLICKS: 8,
     NOISE_LIMIT: 180
 };
@@ -392,8 +394,7 @@ const AudioSys = {
         if(!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const g = this.ctx.createGain();
-        // SHARP NOISE BURST (Sawtooth) for clear attack detection
-        osc.type = 'sawtooth';
+        osc.type = 'square';
         osc.frequency.value = 1000;
         g.gain.value = Game.vol;
         osc.connect(g); g.connect(this.gain);
@@ -585,7 +586,7 @@ const Game = {
     calibLoop() {
         if(!this.calibrating) return;
         const rms = AudioSys.getRMS();
-        // EXTREMELY SENSITIVE (0.005) to detect iPhone Speaker
+        // Extremely sensitive (0.005) to catch weak mic signals
         if (rms > 0.005) {
             const now = AudioSys.ctx.currentTime;
             const hit = this.calibHits[this.calibHits.length-1];
@@ -609,16 +610,15 @@ const Game = {
             }
         });
         
-        // Factor: 0.4 (approx 40% of measured loopback is actual system latency)
-        const FACTOR = 0.4;
-        let result = 0.080; 
-        let msg = "Check volume. Using default 80ms.";
+        let result = 0.160; // Default 160ms
+        let msg = "Calibration Failed.<br>Using default 160ms.";
         
         if (count > 0) {
-            result = minLat * FACTOR;
+            // FIX: Add +40ms margin to measured latency
+            result = minLat + 0.040;
             if(result < 0.01) result = 0.01; 
             if(result > 0.5) result = 0.5;
-            msg = `Latency: ${Math.round(result*1000)}ms<br>Correction Applied.`;
+            msg = `Measured: ${Math.round(minLat*1000)}ms<br>Set: ${Math.round(result*1000)}ms`;
         }
         
         this.latency = result;
